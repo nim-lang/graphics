@@ -363,7 +363,7 @@ proc drawEllipse*(sur: PSurface, cx, cy, xRadius, yRadius: Natural,
   var
     x, y: Natural
     xChange, yChange: int
-    ellipseError: Natural
+    ellipseError: int
     twoASquare, twoBSquare: Natural
     stoppingX, stoppingY: Natural
 
