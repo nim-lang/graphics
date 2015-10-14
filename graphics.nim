@@ -177,7 +177,7 @@ proc drawText*(sur: PSurface, p: Point, text: string, font = defaultFont) =
   new(textSur, surfaceFinalizer)
 
   # Render the text
-  textSur.s = sdl_ttf.renderTextBlended(font.f, text, font.color)
+  textSur.s = sdl_ttf.renderUTF8Blended(font.f, text, font.color)
   # Merge the text surface with sur
   sur.blit((p.x, p.y, sur.w, sur.h), textSur, (0, 0, sur.w, sur.h))
 
@@ -187,7 +187,7 @@ proc drawText*(sur: PSurface, p: Point, text: string,
   ## is the background color.
   var textSur: PSurface # This surface will have the text drawn on it
   new(textSur, surfaceFinalizer)
-  textSur.s = sdl_ttf.renderTextShaded(font.f, text, font.color, toSdlColor(bg))
+  textSur.s = sdl_ttf.renderUTF8Shaded(font.f, text, font.color, toSdlColor(bg))
   # Merge the text surface with sur
   sur.blit((p.x, p.y, sur.w, sur.h), textSur, (0, 0, sur.w, sur.h))
 
