@@ -33,18 +33,20 @@ type
   PFont* = ref Font ## represents a font
 {.deprecated: [TSurface: Surface, TFont: Font, TRect: Rect, TPoint: Point].}
 
+template bytemask(x): untyped = byte(x and 0xff)
+
 proc toSdlColor*(c: Color): sdl.Color =
   ## Convert colors.Color to sdl.Color
   var x = c.extractRGB
-  result.r = x.r and 0xff
-  result.g = x.g and 0xff
-  result.b = x.b and 0xff
+  result.r = bytemask(x.r)
+  result.g = bytemask(x.g)
+  result.b = bytemask(x.b)
 
 proc createSdlColor*(sur: PSurface, c: Color, alpha: int = 0): int32 =
   ## Creates a color using ``sdl.MapRGBA``.
   var x = c.extractRGB
-  return sdl.mapRGBA(sur.s.format, x.r and 0xff, x.g and 0xff,
-                     x.b and 0xff, alpha and 0xff)
+  return sdl.mapRGBA(sur.s.format, bytemask x.r, bytemask x.g,
+                     bytemask x.b, bytemask alpha)
 
 proc toSdlRect*(r: Rect): sdl.Rect =
   ## Convert ``graphics.Rect`` to ``sdl.Rect``.
@@ -104,14 +106,12 @@ proc writeToBMP*(sur: PSurface, filename: string) =
     raise newException(IOError, "cannot write: " & filename)
 
 type
-  Pixels = array[0..1000_000-1, int32]
-  PPixels = ptr Pixels
-{.deprecated: [TPixels: Pixels].}
+  Pixels = ptr array[0..1000_000-1, int32]
 
-template setPix(video, pitch, x, y, col: expr): stmt =
+template setPix(video, pitch, x, y, col: untyped) =
   video[y * pitch + x] = int32(col)
 
-template getPix(video, pitch, x, y: expr): expr =
+template getPix(video, pitch, x, y: untyped): untyped =
   colors.Color(video[y * pitch + x])
 
 const
@@ -120,13 +120,13 @@ const
 proc getPixel(sur: PSurface, x, y: Natural): colors.Color {.inline.} =
   assert x <% sur.w
   assert y <% sur.h
-  result = getPix(cast[PPixels](sur.s.pixels), sur.s.pitch.int div ColSize,
+  result = getPix(cast[Pixels](sur.s.pixels), sur.s.pitch.int div ColSize,
                   x, y)
 
 proc setPixel(sur: PSurface, x, y: Natural, col: colors.Color) {.inline.} =
   assert x <% sur.w
   assert y <% sur.h
-  var pixs = cast[PPixels](sur.s.pixels)
+  var pixs = cast[Pixels](sur.s.pixels)
   #pixs[y * (sur.s.pitch div colSize) + x] = int(col)
   setPix(pixs, sur.s.pitch.int div ColSize, x, y, col)
 
@@ -194,7 +194,7 @@ proc drawText*(sur: PSurface, p: Point, text: string,
 proc drawCircle*(sur: PSurface, p: Point, r: Natural, color: Color) =
   ## draws a circle with center `p` and radius `r` with the given color
   ## onto the surface `sur`.
-  var video = cast[PPixels](sur.s.pixels)
+  var video = cast[Pixels](sur.s.pixels)
   var pitch = sur.s.pitch.int div ColSize
   var a = 1 - r
   var py = r
@@ -253,7 +253,7 @@ proc drawLine*(sur: PSurface, p1, p2: Point, color: Color) =
     stepx = 1
   dy = dy * 2
   dx = dx * 2
-  var video = cast[PPixels](sur.s.pixels)
+  var video = cast[Pixels](sur.s.pixels)
   var pitch = sur.s.pitch.int div ColSize
   setPix(video, pitch, x0, y0, color)
   if dx > dy:
@@ -277,7 +277,7 @@ proc drawLine*(sur: PSurface, p1, p2: Point, color: Color) =
 
 proc drawHorLine*(sur: PSurface, x, y, w: Natural, color: Color) =
   ## draws a horizontal line from (x,y) to (x+w-1, y).
-  var video = cast[PPixels](sur.s.pixels)
+  var video = cast[Pixels](sur.s.pixels)
   var pitch = sur.s.pitch.int div ColSize
 
   if y >= 0 and y <= sur.s.h:
@@ -286,7 +286,7 @@ proc drawHorLine*(sur: PSurface, x, y, w: Natural, color: Color) =
 
 proc drawVerLine*(sur: PSurface, x, y, h: Natural, color: Color) =
   ## draws a vertical line from (x,y) to (x, y+h-1).
-  var video = cast[PPixels](sur.s.pixels)
+  var video = cast[Pixels](sur.s.pixels)
   var pitch = sur.s.pitch.int div ColSize
 
   if x >= 0 and x <= sur.s.w:
@@ -323,7 +323,7 @@ proc fillCircle*(s: PSurface, p: Point, r: Natural, color: Color) =
 
 proc drawRect*(sur: PSurface, r: Rect, color: Color) =
   ## draws a rectangle.
-  var video = cast[PPixels](sur.s.pixels)
+  var video = cast[Pixels](sur.s.pixels)
   var pitch = sur.s.pitch.int div ColSize
   if (r.x >= 0 and r.x <= sur.s.w) and (r.y >= 0 and r.y <= sur.s.h):
     var minW = min(sur.s.w - r.x, r.width)
@@ -346,7 +346,7 @@ proc fillRect*(sur: PSurface, r: Rect, col: Color) =
     raiseEGraphics()
 
 proc plot4EllipsePoints(sur: PSurface, cx, cy, x, y: Natural, col: Color) =
-  var video = cast[PPixels](sur.s.pixels)
+  var video = cast[Pixels](sur.s.pixels)
   var pitch = sur.s.pitch.int div ColSize
   if cx+x <= sur.s.w-1:
     if cy+y <= sur.s.h-1: setPix(video, pitch, cx+x, cy+y, col)
@@ -412,7 +412,7 @@ proc drawEllipse*(sur: PSurface, cx, cy, xRadius, yRadius: Natural,
 
 proc plotAA(sur: PSurface, x, y: int, c: float, color: Color) =
   if (x > 0 and x < sur.s.w) and (y > 0 and y < sur.s.h):
-    var video = cast[PPixels](sur.s.pixels)
+    var video = cast[Pixels](sur.s.pixels)
     var pitch = sur.s.pitch.int div ColSize
 
     var pixColor = getPix(video, pitch, x, y)
@@ -421,10 +421,10 @@ proc plotAA(sur: PSurface, x, y: int, c: float, color: Color) =
            pixColor.intensity(1.0 - c) + color.intensity(c))
 
 
-template ipart(x: expr): expr = floor(x)
-template cround(x: expr): expr = ipart(x + 0.5)
-template fpart(x: expr): expr = x - ipart(x)
-template rfpart(x: expr): expr = 1.0 - fpart(x)
+template ipart(x: untyped): untyped = floor(x)
+template cround(x: untyped): untyped = ipart(x + 0.5)
+template fpart(x: untyped): untyped = x - ipart(x)
+template rfpart(x: untyped): untyped = 1.0 - fpart(x)
 
 proc drawLineAA*(sur: PSurface, p1, p2: Point, color: Color) =
   ## Draws a anti-aliased line from ``p1`` to ``p2``, using Xiaolin Wu's
@@ -446,7 +446,7 @@ proc drawLineAA*(sur: PSurface, p1, p2: Point, color: Color) =
     swap(x2, y2)
     swap(dx, dy)
 
-  template doPlot(x, y: int, c: float, color: Color): stmt =
+  template doPlot(x, y: int, c: float, color: Color) =
     if ax < ay:
       sur.plotAA(y, x, c, color)
     else:
@@ -489,8 +489,7 @@ proc fillSurface*(sur: PSurface, color: Color) =
   if sdl.fillRect(sur.s, nil, sur.createSdlColor(color)) == -1:
     raiseEGraphics()
 
-template withEvents*(surf: PSurface, event: expr, actions: stmt): stmt {.
-  immediate.} =
+template withEvents*(surf: PSurface, event: untyped, actions: untyped) =
   ## Simple template which creates an event loop. ``Event`` is the name of the
   ## variable containing the Event object.
   while true:
